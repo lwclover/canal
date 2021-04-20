@@ -2,10 +2,12 @@ package com.alibaba.otter.canal.client.adapter.es6x.support;
 
 import java.io.IOException;
 import java.net.InetAddress;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.UnknownHostException;
+import java.util.Arrays;
 import java.util.Map;
 
-import com.alibaba.otter.canal.client.adapter.es.core.support.ESBulkRequest;
 import org.apache.commons.lang.StringUtils;
 import org.apache.http.HttpHost;
 import org.apache.http.auth.AuthScope;
@@ -27,7 +29,11 @@ import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.action.update.UpdateRequestBuilder;
-import org.elasticsearch.client.*;
+import org.elasticsearch.client.RequestOptions;
+import org.elasticsearch.client.RestClient;
+import org.elasticsearch.client.RestClientBuilder;
+import org.elasticsearch.client.RestHighLevelClient;
+import org.elasticsearch.client.RestHighLevelClientExt;
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.cluster.metadata.MappingMetaData;
 import org.elasticsearch.common.collect.ImmutableOpenMap;
@@ -40,6 +46,8 @@ import org.elasticsearch.transport.client.PreBuiltTransportClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.alibaba.otter.canal.client.adapter.es.core.support.ESBulkRequest;
+
 /**
  * ES 连接器, Transport Rest 两种方式
  *
@@ -51,7 +59,7 @@ public class ESConnection {
     private static final Logger logger = LoggerFactory.getLogger(ESConnection.class);
 
     public enum ESClientMode {
-                              TRANSPORT, REST
+        TRANSPORT, REST
     }
 
     private ESClientMode        mode;
@@ -73,23 +81,15 @@ public class ESConnection {
                     Integer.parseInt(host.substring(i + 1))));
             }
         } else {
-            HttpHost[] httpHosts = new HttpHost[hosts.length];
-            for (int i = 0; i < hosts.length; i++) {
-                String host = hosts[i];
-                int j = host.indexOf(":");
-                HttpHost httpHost = new HttpHost(InetAddress.getByName(host.substring(0, j)),
-                    Integer.parseInt(host.substring(j + 1)));
-                httpHosts[i] = httpHost;
-            }
+            HttpHost[] httpHosts = Arrays.stream(hosts).map(this::createHttpHost).toArray(HttpHost[]::new);
             RestClientBuilder restClientBuilder = RestClient.builder(httpHosts);
             String nameAndPwd = properties.get("security.auth");
             if (StringUtils.isNotEmpty(nameAndPwd) && nameAndPwd.contains(":")) {
                 String[] nameAndPwdArr = nameAndPwd.split(":");
                 final CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
-                credentialsProvider.setCredentials(AuthScope.ANY,
-                    new UsernamePasswordCredentials(nameAndPwdArr[0], nameAndPwdArr[1]));
-                restClientBuilder.setHttpClientConfigCallback(
-                    httpClientBuilder -> httpClientBuilder.setDefaultCredentialsProvider(credentialsProvider));
+                credentialsProvider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(nameAndPwdArr[0],
+                    nameAndPwdArr[1]));
+                restClientBuilder.setHttpClientConfigCallback(httpClientBuilder -> httpClientBuilder.setDefaultCredentialsProvider(credentialsProvider));
             }
             restHighLevelClient = new RestHighLevelClient(restClientBuilder);
         }
@@ -418,6 +418,7 @@ public class ESConnection {
             }
         }
 
+        @SuppressWarnings("deprecation")
         public ESBulkResponse bulk() {
             if (mode == ESClientMode.TRANSPORT) {
                 BulkResponse responses = bulkRequestBuilder.execute().actionGet();
@@ -501,5 +502,18 @@ public class ESConnection {
 
     public void setRestHighLevelClient(RestHighLevelClient restHighLevelClient) {
         this.restHighLevelClient = restHighLevelClient;
+    }
+
+    private HttpHost createHttpHost(String uriStr) {
+        URI uri = URI.create(uriStr);
+        if (!org.springframework.util.StringUtils.hasLength(uri.getUserInfo())) {
+            return HttpHost.create(uri.toString());
+        }
+        try {
+            return HttpHost.create(new URI(uri.getScheme(), null, uri.getHost(), uri.getPort(), uri.getPath(),
+                                           uri.getQuery(), uri.getFragment()).toString());
+        } catch (URISyntaxException ex) {
+            throw new IllegalStateException(ex);
+        }
     }
 }

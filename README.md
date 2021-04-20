@@ -84,15 +84,19 @@ canal 特别设计了 client-server 模式，交互协议使用 protobuf 3.0 , c
 - canal go客户端: [https://github.com/CanalClient/canal-go](https://github.com/CanalClient/canal-go)
 - canal php客户端: [https://github.com/xingwenge/canal-php](https://github.com/xingwenge/canal-php)
 - canal Python客户端：[https://github.com/haozi3156666/canal-python](https://github.com/haozi3156666/canal-python)
+- canal Rust客户端：[https://github.com/laohanlinux/canal-rs](https://github.com/laohanlinux/canal-rs)
 
 canal 作为 MySQL binlog 增量获取和解析工具，可将变更记录投递到 MQ 系统中，比如 Kafka/RocketMQ，可以借助于 MQ 的多语言能力 
 
 - 参考文档: [Canal Kafka/RocketMQ QuickStart](https://github.com/alibaba/canal/wiki/Canal-Kafka-RocketMQ-QuickStart)
 
-## 相关开源
+## 相关开源&产品
 
 - [canal 消费端开源项目: Otter](http://github.com/alibaba/otter)
 - [阿里巴巴去 Oracle 数据迁移同步工具: yugong](http://github.com/alibaba/yugong)
+- [阿里巴巴离线同步开源项目 DataX](https://github.com/alibaba/datax)
+- [阿里巴巴数据库连接池开源项目 Druid](https://github.com/alibaba/druid)
+- [阿里巴巴实时数据同步工具 DTS](https://www.aliyun.com/product/dts)
 
 ## 问题反馈
 - 报告 issue: [github issues](https://github.com/alibaba/canal/issues)

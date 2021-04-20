@@ -2,7 +2,10 @@ package com.alibaba.otter.canal.client.adapter.es7x.support;
 
 import java.io.IOException;
 import java.net.InetAddress;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.UnknownHostException;
+import java.util.Arrays;
 import java.util.Map;
 
 import org.apache.commons.lang.StringUtils;
@@ -54,11 +57,12 @@ public class ESConnection {
     private static final Logger logger = LoggerFactory.getLogger(ESConnection.class);
 
     public enum ESClientMode {
-                              TRANSPORT, REST
+        TRANSPORT, REST
     }
 
     private ESClientMode        mode;
 
+    @SuppressWarnings("deprecation")
     private TransportClient     transportClient;
 
     private RestHighLevelClient restHighLevelClient;
@@ -76,23 +80,15 @@ public class ESConnection {
                     Integer.parseInt(host.substring(i + 1))));
             }
         } else {
-            HttpHost[] httpHosts = new HttpHost[hosts.length];
-            for (int i = 0; i < hosts.length; i++) {
-                String host = hosts[i];
-                int j = host.indexOf(":");
-                HttpHost httpHost = new HttpHost(InetAddress.getByName(host.substring(0, j)),
-                    Integer.parseInt(host.substring(j + 1)));
-                httpHosts[i] = httpHost;
-            }
+            HttpHost[] httpHosts = Arrays.stream(hosts).map(this::createHttpHost).toArray(HttpHost[]::new);
             RestClientBuilder restClientBuilder = RestClient.builder(httpHosts);
             String nameAndPwd = properties.get("security.auth");
             if (StringUtils.isNotEmpty(nameAndPwd) && nameAndPwd.contains(":")) {
                 String[] nameAndPwdArr = nameAndPwd.split(":");
                 final CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
-                credentialsProvider.setCredentials(AuthScope.ANY,
-                    new UsernamePasswordCredentials(nameAndPwdArr[0], nameAndPwdArr[1]));
-                restClientBuilder.setHttpClientConfigCallback(
-                    httpClientBuilder -> httpClientBuilder.setDefaultCredentialsProvider(credentialsProvider));
+                credentialsProvider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(nameAndPwdArr[0],
+                    nameAndPwdArr[1]));
+                restClientBuilder.setHttpClientConfigCallback(httpClientBuilder -> httpClientBuilder.setDefaultCredentialsProvider(credentialsProvider));
             }
             restHighLevelClient = new RestHighLevelClient(restClientBuilder);
         }
@@ -500,5 +496,18 @@ public class ESConnection {
 
     public void setRestHighLevelClient(RestHighLevelClient restHighLevelClient) {
         this.restHighLevelClient = restHighLevelClient;
+    }
+
+    private HttpHost createHttpHost(String uriStr) {
+        URI uri = URI.create(uriStr);
+        if (!org.springframework.util.StringUtils.hasLength(uri.getUserInfo())) {
+            return HttpHost.create(uri.toString());
+        }
+        try {
+            return HttpHost.create(new URI(uri.getScheme(), null, uri.getHost(), uri.getPort(), uri.getPath(),
+                                           uri.getQuery(), uri.getFragment()).toString());
+        } catch (URISyntaxException ex) {
+            throw new IllegalStateException(ex);
+        }
     }
 }
